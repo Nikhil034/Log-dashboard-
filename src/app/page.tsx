@@ -389,12 +389,12 @@ type LogMessage = {
 export default function Home() {
   const [processes, setProcesses] = useState<PM2Process[]>([]);
   const [logs, setLogs] = useState<LogMessage[]>([]);
+  const [outlog, setOutlog] = useState<LogMessage[]>([]);
   const [filter, setFilter] = useState<string>("");
   const [autoScroll, setAutoScroll] = useState(true);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [selectedApp, setSelectedApp] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [outlogData, setOutlogData] = useState<LogMessage["outData"] | null>(null); // New state for outlog data
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const [darkMode, setDarkMode] = useState(true);
 
@@ -408,7 +408,26 @@ export default function Home() {
         console.log("Process list received:", data.data);
         setProcesses(data.data);
         setIsLoading(false);
-      } else {
+      } else if (data.type === "out_log_update") {
+        console.log("Outlog preview received:", data);
+        const outlogData: LogMessage = data;
+        setOutlog((prev) => [...prev, outlogData]);
+        setProcesses((prevProcesses) => {
+          return prevProcesses.map((process) => {
+            if (process.name === outlogData.appName) {
+              return {
+                ...process,
+                status: outlogData.status,
+                memory: outlogData.memory,
+                lastUpdate: outlogData.timestamp,
+              };
+            }
+            return process;
+          });
+        });
+      }
+      else 
+      {
         const logData: LogMessage = data;
         console.log("Received data:", logData);
 
@@ -449,24 +468,8 @@ export default function Home() {
       [key]: !prev[key],
     }));
   };
-
-  const handleOutlogClick = (appName: string) => {
-    console.log("Outlog clicked for", appName);
-    // Find the latest log with outData for the selected app
-    const latestLogWithOutData = logs
-      .filter((log) => log.appName === appName && log.outData)
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-    
-    if (latestLogWithOutData?.outData) {
-      setOutlogData(latestLogWithOutData.outData);
-    } else {
-      setOutlogData(null); // Clear if no outData is found
-    }
-  };
-
   const clearLogs = () => {
     setLogs([]);
-    setOutlogData(null); // Clear outlog data as well
     setProcesses((prev) =>
       prev.map((process) => ({
         ...process,
@@ -535,7 +538,6 @@ export default function Home() {
 
   const handleViewLogs = (processName: string) => {
     setSelectedApp(processName);
-    setOutlogData(null); // Reset outlog data when switching apps
     setTimeout(() => {
       document.getElementById("logs-section")?.scrollIntoView({ behavior: "smooth" });
     }, 100);
@@ -736,114 +738,87 @@ export default function Home() {
               </div>
             </div>
 
-            {/* App Stats */}
             <div
-              className={`mb-6 rounded-lg ${
-                darkMode ? "bg-gray-800" : "bg-white"
-              } p-4 shadow-sm flex flex-col`}
+              className={`rounded-lg shadow-lg overflow-hidden ${
+                darkMode ? "bg-gray-800 border border-gray-700" : "bg-white"
+              }`}
             >
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center">
-                  <span
-                    className={`w-3 h-3 mr-2 rounded-full ${getStatusDot(
-                      processes.find((p) => p.name === selectedApp)?.status ||
-                        "unknown"
-                    )}`}
-                  ></span>
-                  <h2 className="text-xl font-bold">{selectedApp}</h2>
-                </div>
+              <div className="px-4 py-3 border-b border-gray-700 bg-opacity-50 font-mono text-sm flex justify-between items-center">
                 <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleOutlogClick(selectedApp)}
-                    className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm cursor-pointer"
-                  >
-                    Outlog
-                  </button>
+                  <div className="h-3 w-3 rounded-full bg-red-500"></div>
+                  <div className="h-3 w-3 rounded-full bg-yellow-500"></div>
+                  <div className="h-3 w-3 rounded-full bg-green-500"></div>
+                </div>
+                <div className="text-xs">
+                  outlog entries for {selectedApp}
                 </div>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                <div
-                  className={`p-3 rounded ${
-                    darkMode ? "bg-gray-700" : "bg-gray-100"
-                  }`}
-                >
-                  <div className="text-xs text-gray-500 mb-1">Memory</div>
-                  <div className="font-mono font-bold">
-                    {processes.find((p) => p.name === selectedApp)?.memory ||
-                      "0 MB"}
+
+              <div
+                className={`p-4 font-mono text-sm ${
+                  darkMode ? "bg-gray-900" : "bg-gray-50"
+                } h-96 overflow-y-auto`}
+              >
+                {outlog.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                    <p className="text-lg mb-2">No outlog to display</p>
+                    <p className="text-sm">Waiting for outlog entries...</p>
                   </div>
-                </div>
-                <div
-                  className={`p-3 rounded ${
-                    darkMode ? "bg-gray-700" : "bg-gray-100"
-                  }`}
-                >
-                  <div className="text-xs text-gray-500 mb-1">CPU</div>
-                  <div className="font-mono font-bold">
-                    {processes.find((p) => p.name === selectedApp)?.cpu || "0%"}
-                  </div>
-                </div>
-                <div
-                  className={`p-3 rounded ${
-                    darkMode ? "bg-gray-700" : "bg-gray-100"
-                  }`}
-                >
-                  <div className="text-xs text-gray-500 mb-1">Uptime</div>
-                  <div className="font-mono font-bold">
-                    {processes.find((p) => p.name === selectedApp)?.uptime ||
-                      "0s"}
-                  </div>
-                </div>
+                ) : (
+                  outlog.map((log, idx) => (
+                    <div
+                      key={idx}
+                      className={`mb-4 rounded-lg overflow-hidden border ${
+                        darkMode ? "border-gray-700" : "border-gray-200"
+                      } transition-all duration-200 hover:shadow-md`}
+                    >
+                      <div
+                        className={`flex justify-between items-center p-2 cursor-pointer ${getSeverityColor(
+                          log.severity
+                        )}`}
+                        onClick={() => toggleCollapse(log.appName + idx)}
+                      >
+                        <div className="font-bold truncate mr-2">
+                          {log.logFile}
+                        </div>
+                        <div className="flex items-center space-x-2 text-xs">
+                          <span>{formatDate(log.timestamp)}</span>
+                          <span
+                            className="transform transition-transform duration-200"
+                            style={{
+                              transform: collapsed[log.appName + idx]
+                                ? "rotate(180deg)"
+                                : "rotate(0deg)",
+                            }}
+                          >
+                            ▼
+                          </span>
+                        </div>
+                      </div>
+
+                      {!collapsed[log.appName + idx] && (
+                        <pre
+                          className={`p-3 overflow-x-auto whitespace-pre-wrap ${
+                            darkMode
+                              ? "bg-gray-800 text-gray-300"
+                              : "bg-white text-gray-800"
+                          }`}
+                        >
+                          {log.lastLines}
+                        </pre>
+                      )}
+                    </div>
+                  ))
+                )}
+                <div ref={bottomRef} />
               </div>
             </div>
 
-            {/* Outlog Display (if available) */}
-            {outlogData && (
-              <div
-                className={`mb-6 rounded-lg ${
-                  darkMode ? "bg-gray-800" : "bg-white"
-                } p-4 shadow-sm`}
-              >
-                <div
-                  className={`flex justify-between items-center p-2 cursor-pointer ${getSeverityColor(
-                    "info"
-                  )}`} 
-                  onClick={() => toggleCollapse("outlog")}
-                >
-                  <div className="font-bold truncate mr-2">
-                    {outlogData.logFile} past 40 lines
-                  </div>
-                  <div className="flex items-center space-x-2 text-xs">
-                    <span>{formatDate(outlogData.timestamp)}</span>
-                    <span
-                      className="transform transition-transform duration-200"
-                      style={{
-                        transform: collapsed["outlog"]
-                          ? "rotate(180deg)"
-                          : "rotate(0deg)",
-                      }}
-                    >
-                      ▼
-                    </span>
-                  </div>
-                </div>
-                {!collapsed["outlog"] && (
-                  <pre
-                    className={`p-3 overflow-x-auto whitespace-pre-wrap ${
-                      darkMode
-                        ? "bg-gray-800 text-gray-300"
-                        : "bg-white text-gray-800"
-                    }`}
-                  >
-                    {outlogData.topLines}
-                  </pre>
-                )}
-              </div>
-            )}
+        
 
             {/* Log Display */}
             <div
-              className={`rounded-lg shadow-lg overflow-hidden ${
+              className={`rounded-lg shadow-lg overflow-hidden mt-1.5 ${
                 darkMode ? "bg-gray-800 border border-gray-700" : "bg-white"
               }`}
             >
@@ -863,7 +838,7 @@ export default function Home() {
                   darkMode ? "bg-gray-900" : "bg-gray-50"
                 } h-96 overflow-y-auto`}
               >
-                {filteredLogs.length === 0 ? (
+                {outlog.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-gray-500">
                     <p className="text-lg mb-2">No logs to display</p>
                     <p className="text-sm">Waiting for new log entries...</p>

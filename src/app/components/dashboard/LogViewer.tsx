@@ -47,7 +47,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     // if (autoScroll && outBottomRef.current) {
     //   outBottomRef.current.scrollIntoView({ behavior: "smooth" });
     // }
-  }, [errorLogs, outLogs, autoScroll]);
+  }, [errorLogs,autoScroll]);
 
   return (
     <div id="logs-section">

@@ -33,7 +33,7 @@ export const parseOutLogMessage = (
         message: json.message || JSON.stringify(json, null, 2),
       };
     } catch (e) {
-      console.info("Error parsing JSON:", e);
+      console.info("Error parsing JSON:",e);
     }
 
     const timestampRegex =

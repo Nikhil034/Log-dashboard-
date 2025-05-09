@@ -6,6 +6,7 @@ import type { ChartOptions } from "chart.js";
 import type { AnnotationOptions } from "chartjs-plugin-annotation";
 import { TimeSeriesMetric } from "./types";
 
+
 Chart.register(annotationPlugin);
 
 const LineChartComponent = dynamic(
@@ -66,6 +67,47 @@ export const MemoryChart: React.FC<MemoryChartProps> = ({
     ],
   };
 
+  // const options: ChartOptions<"line"> = {
+  //   responsive: true,
+  //   scales: {
+  //     y: {
+  //       beginAtZero: true,
+  //       title: { display: true, text: "Memory (MB or %)" },
+  //     },
+  //     x: {
+  //       title: { display: true, text: "Time" },
+  //     },
+  //   },
+  //   plugins: {
+  //     legend: { position: "top" },
+  //     title: { display: true, text: `Memory Analytics for ${selectedApp}` },
+  //     tooltip: {
+  //       callbacks: {
+  //         label: (context) =>
+  //           `${context.dataset.label ?? ""}: ${context.parsed.y} ${
+  //             context.dataset.label && context.dataset.label.includes("%") ? "%" : "MB"
+  //           }`,
+  //       },
+  //     },
+  //     annotation: {
+  //       annotations: {
+  //         line1: {
+  //           type: "line" as const,
+  //           yMin: 0.5,
+  //           yMax: 0.5,
+  //           borderColor: "red",
+  //           borderWidth: 2,
+  //           label: {
+  //             content: "High %MEM Threshold",
+  //             enabled: true,
+  //             position: "end" as const,
+  //           },
+  //         } as AnnotationOptions<"line">,
+  //       },
+  //     },
+  //   },
+  // };
+
   const options: ChartOptions<"line"> = {
     responsive: true,
     scales: {
@@ -82,10 +124,23 @@ export const MemoryChart: React.FC<MemoryChartProps> = ({
       title: { display: true, text: `Memory Analytics for ${selectedApp}` },
       tooltip: {
         callbacks: {
-          label: (context) =>
-            `${context.dataset.label ?? ""}: ${context.parsed.y} ${
-              context.dataset.label && context.dataset.label.includes("%") ? "%" : "MB"
-            }`,
+          label: (context) => {
+            const label = context.dataset.label ?? "";
+            const value = context.parsed.y;
+  
+            switch (label) {
+              case "Memory (MB)":
+                return `Used Memory: ${value} MB — Total memory used by the application`;
+              case "Resident Memory (MB)":
+                return `RES: ${value} MB — Non-swappable memory in RAM`;
+              case "Shared Memory (MB)":
+                return `SHR: ${value} MB — Memory shared with other processes`;
+              case "Top %MEM":
+                return `%MEM: ${value}% — Percentage of physical RAM used by this process`;
+              default:
+                return `${label}: ${value}`;
+            }
+          },
         },
       },
       annotation: {
@@ -106,6 +161,7 @@ export const MemoryChart: React.FC<MemoryChartProps> = ({
       },
     },
   };
+  
 
   return (
     <div

@@ -58,7 +58,7 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
             onChange={(e) => onSetFilter(e.target.value)}
             placeholder="Filter logs..."
             className={`w-full px-4 py-2 rounded-lg border ${
-              darkMode ? "bg-gray-700 border-gray-600" : "bg-gray-50 border-gray-300"
+              darkMode ? "bg-gray-700 border-gray-600" : "bg-gray-50 text-gray-500 border-gray-300"
             } focus:outline-none focus:ring-2 focus:ring-green-500`}
           />
           {filter && (

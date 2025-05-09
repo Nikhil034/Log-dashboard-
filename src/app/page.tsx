@@ -19,6 +19,7 @@ import {
 import { parseMemory, parsePercent, validateMemoryValue } from "./components/dashboard/utils";
 import RenderAccessLogs from "./components/renderaccesslog";
 import AccesslogTerminal from "./components/accesslogterminal";
+import { ErrorPopup } from "./components/dashboard/error-popup";
 
 export default function Home() {
   const [processes, setProcesses] = useState<PM2Process[]>([]);
@@ -45,6 +46,7 @@ export default function Home() {
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [accessLogInsights, setAccessLogInsights] = useState<AccessLogInsight[]>([]);
   const [logFileInsights, setLogFileInsights] = useState<LogFileInsights>({});
+  const [isSocketError, setIsSocketError] = useState<boolean>(false);
 
   const updateProcessStats = useCallback((logData: LogMessage) => {
     setProcesses((prevProcesses) =>
@@ -64,6 +66,8 @@ export default function Home() {
   useEffect(() => {
     console.log("Connecting to WebSocket...",process.env.NEXT_PUBLIC_WEBSOCKET_URL);
     const socket = new WebSocket(process.env.NEXT_PUBLIC_WEBSOCKET_URL || "ws://localhost:8080");
+    
+    // const socket = new WebSocket("ws://localhost:8080");
 
     // socket.onopen = () => {
     //   socket.send(
@@ -184,11 +188,20 @@ export default function Home() {
     };
 
     socket.onerror = (error) => {
-      console.error("WebSocket error:", error);
+      console.error("WebSocket error:", error.currentTarget);
+      setIsSocketError(true);
     };
+
+    socket.onclose = () => {
+      console.log("WebSocket disconnected");
+      setIsSocketError(true);
+    };
+
 
     return () => socket.close();
   }, [updateProcessStats]);
+
+  
 
   const handleViewLogs = (processName: string) => {
     setShowTerminal(false);
@@ -295,6 +308,7 @@ export default function Home() {
             />
           </>
         )}
+          <ErrorPopup isOpen={isSocketError} onClose={() => setIsSocketError(false)} />
       </div>
     </div>
   );

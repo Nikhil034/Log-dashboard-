@@ -51,16 +51,16 @@ export const ProcessList: React.FC<ProcessListProps> = ({
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
                     Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" title="Port number the app is running on">
                     Port
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" title="Current memory usage of the app">
                     Memory
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" title="Current CPU usage by the app">
                     CPU
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" title="Time since the app was last restarted">
                     Uptime
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">

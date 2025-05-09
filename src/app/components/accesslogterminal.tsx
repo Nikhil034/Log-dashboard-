@@ -56,14 +56,15 @@ const AccesslogTerminal: React.FC<AccesslogTerminalProps> = ({ logFile, darkMode
   };
 
   return (
-    <div className={`bg-black border border-gray-700 rounded-md overflow-hidden shadow-lg ${darkMode ? "bg-gray-900" : "bg-gray-800"}`}>
-      <div className="bg-gray-800 px-4 py-2 flex items-center border-b border-gray-700">
+    <div className={`bg-black border border-gray-700 rounded-md overflow-hidden shadow-lg ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
+      {/* Terminal Header */}
+      <div className={`px-4 py-2 flex items-center border-b border-gray-700 ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
         <div className="mr-auto flex space-x-2">
           <div className="w-3 h-3 rounded-full bg-red-500"></div>
           <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
           <div className="w-3 h-3 rounded-full bg-green-500"></div>
         </div>
-        <div className="text-gray-300 font-mono text-sm">tail -f /var/log/nginx/{logFile}</div>
+        <div className="text-gray-700 font-mono text-sm">tail -f /var/log/nginx/{logFile}</div>
       </div>
       <div className="p-4 font-mono text-sm text-gray-300 overflow-auto max-h-[600px]">
         <div className="text-green-400 mb-4">$ tail -f /var/log/nginx/{logFile}</div>

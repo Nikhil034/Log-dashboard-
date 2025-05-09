@@ -34,19 +34,19 @@ export const SystemStats: React.FC<SystemStatsProps> = ({
       <div className={`p-4 ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="flex flex-col">
-            <span className="text-sm font-semibold text-gray-500">Total Memory</span>
+            <span className="text-sm font-semibold text-gray-500" title="Total physical memory available on the server.">Total Memory</span>
             <span className="text-lg font-mono">{systemStats.systemMemoryTotal}</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-semibold text-gray-500">Free Memory</span>
+            <span className="text-sm font-semibold text-gray-500" title="Unused memory currently available for use.">Free Memory</span>
             <span className="text-lg font-mono">{systemStats.systemFreeMemory}</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-semibold text-gray-500">Used Memory</span>
+            <span className="text-sm font-semibold text-gray-500" title="Amount of memory currently in use by processes.">Used Memory</span>
             <span className="text-lg font-mono">{systemStats.systemUsedMemory}</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-semibold text-gray-500">Buffer Memory</span>
+            <span className="text-sm font-semibold text-gray-500" title="Memory used by the system for buffers and cache.">Buffer Memory</span>
             <span className="text-lg font-mono">{systemStats.systemBufferMemory}</span>
           </div>
         </div>

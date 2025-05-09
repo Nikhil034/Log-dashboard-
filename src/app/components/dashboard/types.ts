@@ -1,0 +1,79 @@
+export interface PM2Process {
+    name: string;
+    pid: string | number;
+    status: string;
+    memory: string;
+    cpu: string;
+    uptime: string;
+    port?: string;
+    residentMemory: string;
+    sharedMemory: string;
+    topCPU: string;
+    topMEM: string;
+    lastUpdate?: string;
+    systemMemoryTotal?: string; // Corrected typo
+    systemFreeMemory?: string;
+    systemUsedMemory?: string;
+    systemBufferMemory?: string;
+    accessLogs?: string[];
+  }
+  
+  export interface LogMessage {
+    appName: string;
+    status: string;
+    memory: string;
+    logFile: string;
+    lastLines: string;
+    timestamp: string;
+    userAgent?: string;
+    severity?: "info" | "warning" | "error" | "critical";
+    type?: string;
+  }
+  
+  export interface AccessLog {
+    id: string | number;
+    name: string;
+    ip?: string;
+    timestamp?: string;
+    method?: string;
+    url?: string;
+    status?: string;
+    userAgent?: string;
+    browser?: string;
+    os?: string;
+  }
+  
+  export interface AccessLogInsight {
+    browser: string;
+    os: string;
+    count: number;
+  }
+  
+  export interface LogFileInsights {
+    [logFile: string]: AccessLogInsight[];
+  }
+  
+  export interface LogEntry {
+    timestamp: string;
+    ip: string;
+    method: string;
+    url: string;
+    statusCode: number;
+    userAgent: string;
+    logFile: string;
+  }
+  
+  export interface TimeSeriesMetric {
+    timestamp: string;
+    memory: number;
+    residentMemory: number;
+    sharedMemory: number;
+    topMEM: number;
+  }
+  
+  export interface SystemStats {
+    systemMemoryTotal: string;
+    systemFreeMemory: string;
+    systemUsedMemory: string;
+    systemBufferMemory: string;
+  }

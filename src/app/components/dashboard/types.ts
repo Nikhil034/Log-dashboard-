@@ -16,7 +16,15 @@ export interface PM2Process {
     systemUsedMemory?: string;
     systemBufferMemory?: string;
     accessLogs?: string[];
+    userProcesses?: UserProcess[];
   }
+
+  export interface UserProcess {
+    user: string;
+    processCount: number;
+    processes: { pid: string; command: string; cpu: string; mem: string }[];
+  }
+  
   
   export interface LogMessage {
     appName: string;
@@ -76,4 +84,11 @@ export interface PM2Process {
     systemFreeMemory: string;
     systemUsedMemory: string;
     systemBufferMemory: string;
+  }
+
+  export interface StorageStats {
+    storageTotal: string
+    storageUsed: string,
+    storageAvailable: string,
+    storageUsePercent: string
   }

@@ -15,11 +15,15 @@ import {
   LogEntry,
   TimeSeriesMetric,
   SystemStats as SystemStatsType,
+  StorageStats as StorageStatsType,
+  UserProcess,
 } from "./components/dashboard/types";
 import { parseMemory, parsePercent, validateMemoryValue } from "./components/dashboard/utils";
 import RenderAccessLogs from "./components/renderaccesslog";
 import AccesslogTerminal from "./components/accesslogterminal";
 import { ErrorPopup } from "./components/dashboard/error-popup";
+import { StorageStats } from "./components/dashboard/StorageStats";
+import { UserList } from "./components/dashboard/Userlist";
 
 export default function Home() {
   const [processes, setProcesses] = useState<PM2Process[]>([]);
@@ -39,6 +43,12 @@ export default function Home() {
     systemUsedMemory: "0 MB",
     systemBufferMemory: "0 MB",
   });
+  const [storageStats, setStorageStats] = useState<StorageStatsType>({
+    storageTotal: "0 MB",
+    storageUsed: "0 MB",
+    storageAvailable: "0 MB",
+    storageUsePercent: "0%",
+  });
   const [accessLogs, setAccessLogs] = useState<AccessLog[]>([]);
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [selectedLogFile, setSelectedLogFile] = useState<string | null>(null);
@@ -47,6 +57,7 @@ export default function Home() {
   const [accessLogInsights, setAccessLogInsights] = useState<AccessLogInsight[]>([]);
   const [logFileInsights, setLogFileInsights] = useState<LogFileInsights>({});
   const [isSocketError, setIsSocketError] = useState<boolean>(false);
+  const [userProcesses, setUserProcesses] = useState<UserProcess[]>([]);
 
   const updateProcessStats = useCallback((logData: LogMessage) => {
     setProcesses((prevProcesses) =>
@@ -65,9 +76,9 @@ export default function Home() {
 
   useEffect(() => {
     console.log("Connecting to WebSocket...",process.env.NEXT_PUBLIC_WEBSOCKET_URL);
-    const socket = new WebSocket(process.env.NEXT_PUBLIC_WEBSOCKET_URL || "ws://localhost:8080");
+    // const socket = new WebSocket(process.env.NEXT_PUBLIC_WEBSOCKET_URL || "ws://localhost:8080");
     
-    // const socket = new WebSocket("ws://localhost:8080");
+    const socket = new WebSocket("ws://localhost:8080");
 
     // socket.onopen = () => {
     //   socket.send(
@@ -91,6 +102,13 @@ export default function Home() {
               systemUsedMemory: validateMemoryValue(proc.systemUsedMemory),
               systemBufferMemory: validateMemoryValue(proc.systemBufferMemory),
             });
+            setStorageStats({
+              storageTotal: data.data[0].storageTotal,
+              storageUsed: data.data[0].storageUsed,
+              storageAvailable: data.data[0].storageAvailable,
+              storageUsePercent: data.data[0].storageUsePercent,
+            })
+            setUserProcesses(proc.userProcesses || []);
 
             const processWithLogs = data.data.find(
               (proc: PM2Process) => Array.isArray(proc.accessLogs)
@@ -252,8 +270,14 @@ export default function Home() {
           isLoading={isLoading}
           onViewLogs={handleViewLogs}
           darkMode={darkMode}
-        />
+        /> 
         <SystemStats systemStats={systemStats} darkMode={darkMode} selectedApp={selectedApp} />
+        <StorageStats storageStats={storageStats} darkMode={darkMode} selectedApp={selectedApp} />
+        <UserList
+          userProcesses={userProcesses}
+          isLoading={isLoading}
+          darkMode={darkMode}
+        />
         {!selectedApp && (
           <div className={`${darkMode ? "bg-gray-900" : "bg-gray-100"} p-6`}>
             <RenderAccessLogs

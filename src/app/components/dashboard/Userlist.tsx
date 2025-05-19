@@ -127,17 +127,17 @@ export const UserList: React.FC<UserListProps> = ({
             <div className="max-h-96 overflow-y-auto">
               <table className="min-w-full divide-y divide-gray-700">
                 <thead>
-                  <tr className={`${darkMode ? "text-gray-400" : "text-gray-600"}`}>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider sticky top-0 bg-gray-900">
+                  <tr className={`${darkMode ? "text-gray-400 bg-gray-900" : "text-gray-600 bg-gray-50"}`}>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider sticky top-0">
                       PID
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider sticky top-0 bg-gray-900">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider sticky top-0">
                       Command
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider sticky top-0 bg-gray-900">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider sticky top-0">
                       CPU (%)
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider sticky top-0 bg-gray-900">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider sticky top-0">
                       Memory (%)
                     </th>
                   </tr>

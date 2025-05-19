@@ -1,5 +1,6 @@
 export interface PM2Process {
     name: string;
+    user:string
     pid: string | number;
     status: string;
     memory: string;

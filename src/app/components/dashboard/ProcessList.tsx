@@ -51,9 +51,12 @@ export const ProcessList: React.FC<ProcessListProps> = ({
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
                     Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" title="Port number the app is running on">
-                    Port
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" title="The user who started the process.">
+                    User
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" title="A unique identifier for a running process.">
+                    PID
+                  </th>                  
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" title="Current memory usage of the app">
                     Memory
                   </th>
@@ -97,8 +100,11 @@ export const ProcessList: React.FC<ProcessListProps> = ({
                     <td className="px-6 py-4 whitespace-nowrap font-semibold">
                       {process.name}
                     </td>
+                     <td className="px-6 py-4 whitespace-nowrap font-semibold">
+                      {process.user}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap font-mono">
-                      {process.port || "N/A"}
+                      {process.pid || "N/A"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap font-mono">
                       {process.memory}

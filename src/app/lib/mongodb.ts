@@ -8,8 +8,9 @@ let client;
 let clientPromise: Promise<MongoClient>;
 
 declare global {
-  // allow global `var` in dev to prevent hot-reload issues
-  var _mongoClientPromise: Promise<MongoClient>;
+  // allow global `let` in dev to prevent hot-reload issues
+  // eslint-disable-next-line no-var
+  var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
 if (!process.env.MONGODB_URI) {

@@ -29,9 +29,9 @@ export default function AuthorizationForm() {
   }>({ show: false, title: "", message: "", type: "success" });
   const serverDropdownRef = useRef<HTMLDivElement>(null);
   const processDropdownRef = useRef<HTMLDivElement>(null);
-  const processListRef = useRef<any[]>([]);
+  const processListRef = useRef<PM2Process[]>([]);
   const [Isdisable, setIsDisable] = useState(false);
-  const [userProcesses, setUserProcesses] = useState<any[]>([]);
+  const [userProcesses, setUserProcesses] = useState<PM2Process[]>([]);
   // const [selectedProcesses, setSelectedProcesses] = useState<string[]>([]);
 
   const servers = [
@@ -188,7 +188,7 @@ export default function AuthorizationForm() {
     const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(SECRET), iv);
     let encrypted = cipher.update(password, "utf-8", "hex");
     encrypted += cipher.final("hex"); //this to be store in database
-    return encrypted;
+    return iv.toString('hex') + ':' + encrypted;
   };
 
   const handleAuthorization = async () => {
@@ -266,6 +266,8 @@ export default function AuthorizationForm() {
         }),
       });
 
+      console.log("Response data:", response);
+
       setToastMessage({
         show: true,
         title: "Access Saved",
@@ -281,6 +283,7 @@ export default function AuthorizationForm() {
         message: "Failed to save access.",
         type: "error",
       });
+      console.log("Error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -306,6 +309,7 @@ export default function AuthorizationForm() {
         }),
       });
       setGeneratedPassword(newPassword);
+      console.log("Response data:", response);  
       setToastMessage({
         show: true,
         title: "Password Regenerated",

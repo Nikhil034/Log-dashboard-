@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       console.log("User already exists", existingUser);
       // Find the authorization entry for the selected server
       const serverAuth = existingUser.authorization.find(
-        (auth: any) => auth.serverName === selectedServer
+        (auth: { serverName: string; }) => auth.serverName === selectedServer
       );
       console.log("Server Authorization: ", serverAuth);
       const processNames = serverAuth ? serverAuth.processes : [];
@@ -64,14 +64,14 @@ export async function POST(req: Request) {
   } else {
     // Existing user: check if server already exists in authorization
     const serverIndex = existingUser.authorization.findIndex(
-      (auth: any) => auth.serverName === selectedServer
+      (auth: { serverName:string ; }) => auth.serverName === selectedServer
     );
 
     if (serverIndex !== -1) {
       const existingProcesses =
         existingUser.authorization[serverIndex].processes;
 
-      const updatedProcesses = existingProcesses.map((proc: any) => {
+      const updatedProcesses = existingProcesses.map((proc: { name: string; }) => {
         if (selectedProcesses.includes(proc.name)) {
           return { ...proc, status: "active" }; // reactivate if re-selected
         } else {
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
       // Add any new processes not already in the list
       const additionalNewProcesses = selectedProcesses
         .filter(
-          (proc: string) => !existingProcesses.some((p: any) => p.name === proc)
+          (proc: string) => !existingProcesses.some((p: { name: string; }) => p.name === proc)
         )
         .map((name: string) => ({ name, status: "active" }));
 
@@ -102,7 +102,7 @@ export async function POST(req: Request) {
       await usersCollection.updateOne(
         { email },
         {
-          $push: { authorization: newAuthorizationEntry } as any,
+          $push: { authorization: newAuthorizationEntry } as object,
           $set: { lastUpdated: now },
         }
       );

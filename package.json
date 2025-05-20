@@ -12,6 +12,9 @@
     "@react-email/components": "^0.0.41",
     "chart.js": "^4.4.9",
     "chartjs-plugin-annotation": "^3.1.0",
+    "cookie": "^1.0.2",
+    "jose": "^6.0.11",
+    "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.507.0",
     "mongodb": "^6.16.0",
     "next": "15.3.1",
@@ -19,11 +22,13 @@
     "react": "^19.0.0",
     "react-chartjs-2": "^5.3.0",
     "react-dom": "^19.0.0",
-    "react-email": "^4.0.14"
+    "react-email": "^4.0.14",
+    "react-toastify": "^11.0.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^20",
     "@types/nodemailer": "^6.4.17",
     "@types/react": "^19",

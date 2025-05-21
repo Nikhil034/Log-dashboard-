@@ -1,19 +1,23 @@
 import React from "react";
-import { PM2Process } from "./types";
+import { PM2Process,DBProcess } from "./types";
 import { getStatusColor, getStatusDot } from "./utils";
 
 interface ProcessListProps {
   processes: PM2Process[];
+  DBprocess: DBProcess[]; // Use DBProcess type for DBprocess prop
   isLoading: boolean;
   onViewLogs: (processName: string) => void;
   darkMode: boolean;
+  isroot: boolean;
 }
 
 export const ProcessList: React.FC<ProcessListProps> = ({
   processes,
+  DBprocess,
   isLoading,
   onViewLogs,
   darkMode,
+  isroot
 }) => {
   return (
     <div
@@ -51,12 +55,12 @@ export const ProcessList: React.FC<ProcessListProps> = ({
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
                     Name
                   </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" title="The user who started the process.">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" title="The user who started the process.">
                     User
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" title="A unique identifier for a running process.">
                     PID
-                  </th>                  
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" title="Current memory usage of the app">
                     Memory
                   </th>
@@ -74,55 +78,67 @@ export const ProcessList: React.FC<ProcessListProps> = ({
               <tbody
                 className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-200"}`}
               >
-                {processes.map((process) => (
-                  <tr
-                    key={process.name}
-                    className={`${
-                      darkMode ? "hover:bg-gray-800" : "hover:bg-gray-50"
-                    } transition-colors`}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <span
-                          className={`h-3 w-3 rounded-full ${getStatusDot(
-                            process.status
-                          )} mr-2`}
-                        ></span>
-                        <span
-                          className={`px-2 py-1 text-xs rounded-full ${getStatusColor(
-                            process.status
-                          )}`}
+                {processes.map((process) => {
+                  // Check if the process name exists in DBprocess
+                  // / Enable button if user is root or process name exists in DBprocess
+                  const canViewLogs =
+                    isroot || DBprocess.some((dbProc) => dbProc.name === process.name);
+
+                  return (
+                    <tr
+                      key={process.name}
+                      className={`${
+                        darkMode ? "hover:bg-gray-800" : "hover:bg-gray-50"
+                      } transition-colors`}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <span
+                            className={`h-3 w-3 rounded-full ${getStatusDot(
+                              process.status
+                            )} mr-2`}
+                          ></span>
+                          <span
+                            className={`px-2 py-1 text-xs rounded-full ${getStatusColor(
+                              process.status
+                            )}`}
+                          >
+                            {process.status}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap font-semibold">
+                        {process.name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap font-semibold">
+                        {process.user}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap font-mono">
+                        {process.pid || "N/A"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap font-mono">
+                        {process.memory}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap font-mono">
+                        {process.cpu}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">{process.uptime}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => onViewLogs(process.name)}
+                          className={`${
+                            canViewLogs
+                              ? "text-blue-500 hover:text-blue-700 cursor-pointer"
+                              : "text-gray-400 cursor-not-allowed"
+                          } transition-colors`}
+                          disabled={!canViewLogs} // Disable button unless user is root or process matches
                         >
-                          {process.status}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap font-semibold">
-                      {process.name}
-                    </td>
-                     <td className="px-6 py-4 whitespace-nowrap font-semibold">
-                      {process.user}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap font-mono">
-                      {process.pid || "N/A"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap font-mono">
-                      {process.memory}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap font-mono">
-                      {process.cpu}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">{process.uptime}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => onViewLogs(process.name)}
-                        className="text-blue-500 hover:text-blue-700 transition-colors cursor-pointer"
-                      >
-                        View Logs
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                          View Logs
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

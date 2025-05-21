@@ -1,12 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import {
-  Check,
-  Mail,
-  Key,
-  ChevronDown,
-  X,
-} from "lucide-react";
+import { Check, Mail, Key, ChevronDown, X } from "lucide-react";
 import crypto from "crypto";
 import { PM2Process } from "../dashboard/types";
 
@@ -20,6 +14,8 @@ export default function AuthorizationForm() {
   const [isServerDropdownOpen, setIsServerDropdownOpen] = useState(false);
   const [isProcessDropdownOpen, setIsProcessDropdownOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingsave, setIsLoadingsave] = useState(false);
+  const [isLoadingpassword, setIsLoadingpassword] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState("");
   const [toastMessage, setToastMessage] = useState<{
     show: boolean;
@@ -135,9 +131,7 @@ export default function AuthorizationForm() {
           setEmailError("");
           console.log("Valid email:", email);
           const isExist = await Userexistencecheck(email);
-          if (isExist) {
-            setIsDisable(true); //This is for if user already exist then disable the button grant authorization
-          }
+          setIsDisable(isExist); // Enable button if user exists
         }
       }
     };
@@ -188,11 +182,11 @@ export default function AuthorizationForm() {
     const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(SECRET), iv);
     let encrypted = cipher.update(password, "utf-8", "hex");
     encrypted += cipher.final("hex"); //this to be store in database
-    return iv.toString('hex') + ':' + encrypted;
+    return iv.toString("hex") + ":" + encrypted;
   };
 
   const handleAuthorization = async () => {
-    // setIsLoading(true);
+    setIsLoading(true);
     const password = generateAES256Password(); //this is the password to be sent
     const encrypted = encryptPassword(password); //this is the password to be stored in database
 
@@ -244,7 +238,7 @@ export default function AuthorizationForm() {
   };
 
   const handleSave = async () => {
-    setIsLoading(true);
+    setIsLoadingsave(true);
     try {
       // Placeholder for saving process access
       console.log("Saving access for:", {
@@ -255,7 +249,7 @@ export default function AuthorizationForm() {
       console.log("Selected processes:", selectedProcesses);
 
       const response = await fetch("/api/user-login", {
-        method: "PUT",
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
@@ -267,6 +261,7 @@ export default function AuthorizationForm() {
       });
 
       console.log("Response data:", response);
+      setIsLoadingsave(false);
 
       setToastMessage({
         show: true,
@@ -290,7 +285,6 @@ export default function AuthorizationForm() {
   };
 
   const handleRegeneratePassword = async () => {
-    setIsLoading(true);
     const newPassword = generateAES256Password(); //this is the new password to be sent
     console.log("New password generated:", newPassword);
     const encrypted = encryptPassword(newPassword); //this is the password to be stored in database
@@ -309,7 +303,8 @@ export default function AuthorizationForm() {
         }),
       });
       setGeneratedPassword(newPassword);
-      console.log("Response data:", response);  
+      console.log("Response data:", response);
+      setIsLoadingpassword(false);
       setToastMessage({
         show: true,
         title: "Password Regenerated",
@@ -337,8 +332,27 @@ export default function AuthorizationForm() {
     );
   };
 
+  // useEffect(() => {
+  //   if (processes.length > 0 && userProcesses.length > 0) {
+  //     const userProcessNames = userProcesses.map((p) => p.name);
+  //     const matching = processes
+  //       .filter((p) => userProcessNames.includes(p.name))
+  //       .map((p) => p.name);
+
+  //     console.log("Matching processes:", matching);
+
+  //     setSelectedProcesses(matching);
+  //   }
+  // }, [processes, userProcesses]);
+
   useEffect(() => {
-    if (processes.length > 0 && userProcesses.length > 0) {
+    // Ensure both processes and userProcesses are valid arrays
+    if (
+      Array.isArray(processes) &&
+      processes.length > 0 &&
+      Array.isArray(userProcesses) &&
+      userProcesses.length > 0
+    ) {
       const userProcessNames = userProcesses.map((p) => p.name);
       const matching = processes
         .filter((p) => userProcessNames.includes(p.name))
@@ -347,6 +361,9 @@ export default function AuthorizationForm() {
       console.log("Matching processes:", matching);
 
       setSelectedProcesses(matching);
+    } else {
+      // Optionally set selectedProcesses to an empty array if no match
+      setSelectedProcesses([]);
     }
   }, [processes, userProcesses]);
 
@@ -531,106 +548,6 @@ export default function AuthorizationForm() {
             )}
           </div>
 
-          {/* Action Buttons */}
-          {/* <div className="grid grid-cols-2 gap-4 mt-6">
-            <button
-              onClick={handleAuthorization}
-              disabled={
-                !!emailError ||
-                !email ||
-                !selectedServer ||
-                selectedProcesses.length === 0 ||
-                isLoading || Isdisable
-              }
-              className={`w-full px-4 py-3 rounded-lg text-white font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 flex items-center justify-center ${
-                !!emailError ||
-                !email ||
-                !selectedServer ||
-                selectedProcesses.length === 0 ||
-                Isdisable
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-teal-600 hover:bg-teal-700 hover:scale-105 focus:ring-teal-500"
-              }`}
-            >
-              {isLoading ? (
-                <svg
-                  className="animate-spin h-5 w-5 mr-2 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-              ) : null}
-              {isLoading ? "Processing..." : "Grant Authorization"}
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={
-                !!emailError ||
-                !email ||
-                !selectedServer ||
-                selectedProcesses.length === 0 ||
-                isLoading
-              }
-              className={`w-full px-4 py-3 rounded-lg text-white font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 ${
-                !!emailError ||
-                !email ||
-                !selectedServer ||
-                selectedProcesses.length === 0 ||
-                isLoading
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700 hover:scale-105 focus:ring-blue-500"
-              }`}
-            >
-              Save Access
-            </button>
-            <button
-              onClick={handleRevoke}
-              disabled={
-                !!emailError ||
-                !email ||
-                !selectedServer ||
-                selectedProcesses.length === 0 ||
-                isLoading
-              }
-              className={`w-full px-4 py-3 rounded-lg text-white font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 ${
-                !!emailError ||
-                !email ||
-                !selectedServer ||
-                selectedProcesses.length === 0 ||
-                isLoading
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-red-600 hover:bg-red-700 hover:scale-105 focus:ring-red-500"
-              }`}
-            >
-              Revoke Access
-            </button>
-            <button
-              onClick={handleRegeneratePassword}
-              disabled={!!emailError || !email || isLoading}
-              className={`w-full px-4 py-3 rounded-lg text-white font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 ${
-                !!emailError || !email || isLoading
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-purple-600 hover:bg-purple-700 hover:scale-105 focus:ring-purple-500"
-              }`}
-            >
-              Regenerate Password
-            </button>
-          </div> */}
-
           <div className="grid grid-cols-3 md:grid-cols-1 gap-4 mt-6">
             {/* Grant Authorization Button */}
             <div className="relative group">
@@ -692,19 +609,19 @@ export default function AuthorizationForm() {
                   !email ||
                   !selectedServer ||
                   selectedProcesses.length === 0 ||
-                  isLoading
+                  isLoadingsave
                 }
                 className={`w-full px-4 py-3 rounded-lg text-white font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 cursor-pointer ${
                   !!emailError ||
                   !email ||
                   !selectedServer ||
                   selectedProcesses.length === 0 ||
-                  isLoading
+                  isLoadingsave
                     ? "bg-gray-400 cursor-not-allowed"
                     : "bg-blue-600 hover:bg-blue-700 hover:scale-105 focus:ring-blue-500"
                 }`}
               >
-                Save Access
+                {isLoadingsave ? "Saving..." : "Save Access"}
               </button>
               <span className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
                 Save current access configuration
@@ -715,14 +632,16 @@ export default function AuthorizationForm() {
             <div className="relative group">
               <button
                 onClick={handleRegeneratePassword}
-                disabled={!!emailError || !email || isLoading}
+                disabled={
+                  !!emailError || !email || isLoadingpassword || !Isdisable
+                }
                 className={`w-full px-4 py-3 rounded-lg text-white font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 cursor-pointer ${
-                  !!emailError || !email || isLoading
+                  !!emailError || !email || isLoadingpassword || !Isdisable
                     ? "bg-gray-400 cursor-not-allowed"
                     : "bg-purple-600 hover:bg-purple-700 hover:scale-105 focus:ring-purple-500"
                 }`}
               >
-                Regenerate Password
+                {isLoadingpassword ? "Regenerating..." : "Regenerate Password"}
               </button>
               <span className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
                 Generate a new password for the user
@@ -748,14 +667,6 @@ export default function AuthorizationForm() {
                   className="pl-10 pr-20 w-full h-12 px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all duration-200 text-gray-900"
                   readOnly
                 />
-                {/* <div className="absolute right-2 top-2 flex space-x-2">
-                  <button
-                    className="p-2 rounded-lg hover:bg-gray-100"
-                    // onClick={() => setShowPassword(!showPassword)}
-                  >
-                    <EyeOff className="h-5 w-5 text-gray-500" />
-                  </button>
-                </div> */}
               </div>
               <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 mt-2">
                 <p className="text-sm text-teal-800">

@@ -16,6 +16,9 @@ export async function POST(req: Request) {
   const db = client.db("logger-db"); // use default db or specify db name
   const usersCollection = db.collection("users");
 
+  console.log("Email: ", email);
+  console.log("Selected Server: ", selectedServer); 
+
   // Check if user already exists
   const existingUser = await usersCollection.findOne({ email });
 
@@ -67,9 +70,13 @@ export async function POST(req: Request) {
       (auth: { serverName:string ; }) => auth.serverName === selectedServer
     );
 
+    console.log("Server Index: ", serverIndex);
+
     if (serverIndex !== -1) {
       const existingProcesses =
         existingUser.authorization[serverIndex].processes;
+
+      console.log("Existing Processes: ", existingProcesses);
 
       const updatedProcesses = existingProcesses.map((proc: { name: string; }) => {
         if (selectedProcesses.includes(proc.name)) {

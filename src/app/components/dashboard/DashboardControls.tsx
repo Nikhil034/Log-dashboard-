@@ -1,4 +1,6 @@
+"use client";
 import React from "react";
+import { useRouter } from "next/navigation";
 
 interface DashboardControlsProps {
   darkMode: boolean;
@@ -10,6 +12,7 @@ interface DashboardControlsProps {
   onSetFilter: (filter: string) => void;
   onToggleAutoScroll: () => void;
   onBackToProcessList: () => void;
+  isroot: boolean;
 }
 
 export const DashboardControls: React.FC<DashboardControlsProps> = ({
@@ -22,7 +25,9 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
   onSetFilter,
   onToggleAutoScroll,
   onBackToProcessList,
+  isroot,
 }) => {
+  const router = useRouter();
   return (
     <div className="flex flex-col md:flex-row items-center justify-between mb-6">
       <div className="flex items-center space-x-4 mb-2 md:mb-0">
@@ -58,7 +63,9 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
             onChange={(e) => onSetFilter(e.target.value)}
             placeholder="Filter logs..."
             className={`w-full px-4 py-2 rounded-lg border ${
-              darkMode ? "bg-gray-700 border-gray-600" : "bg-gray-50 text-gray-500 border-gray-300"
+              darkMode
+                ? "bg-gray-700 border-gray-600"
+                : "bg-gray-50 text-gray-500 border-gray-300"
             } focus:outline-none focus:ring-2 focus:ring-green-500`}
           />
           {filter && (
@@ -82,6 +89,34 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
         >
           Clear Logs
         </button>
+        {isroot && (
+          <>
+            <button
+              title="Settings"
+              className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              onClick={() => router.push("/admin/grant-access")}
+            >
+              <span role="img" aria-label="Settings">
+                ⚙️
+              </span>
+            </button>
+            <button
+              title="Logout"
+              className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              onClick={async () => {
+                const confirmed = confirm("Are you sure you want to logout?");
+                if (confirmed) {
+                  await fetch("/api/logout");
+                  window.location.href = "/userlogin"; // or router.push("/")
+                }
+              }}
+            >
+              <span role="img" aria-label="Logout">
+                ⭕
+              </span>
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

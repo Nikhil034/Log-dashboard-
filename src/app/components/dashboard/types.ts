@@ -25,6 +25,10 @@ export interface PM2Process {
     processCount: number;
     processes: { pid: string; command: string; cpu: string; mem: string }[];
   }
+  export interface DBProcess {
+  name: string;
+  status: string; // Adjust the type of status if it's more specific (e.g., "running" | "stopped")
+}
   
   
   export interface LogMessage {

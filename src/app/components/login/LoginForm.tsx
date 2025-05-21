@@ -44,7 +44,7 @@ const LoginForm: React.FC = () => {
       if (response.status === 200) {
         setPopup({ message: "Login successful!", type: "success" });
         setTimeout(() => {
-          router.push("/admin/grant-access");
+          router.push("/");
         }, 2000);
       } else if (response.status === 404) {
         setPopup({

@@ -20,17 +20,26 @@ export async function middleware(req: NextRequest) {
     );
     if (payload.name === "lampros-root") {
       console.log("Root user detected, allowing access");
-      return NextResponse.next();
+      const res = NextResponse.next();
+      res.cookies.set("role", "root", { path: "/" });
+      return res;
     }
-    if(payload.email){
+    if (payload.email) {
       console.log("User email detected, allowing access");
-      return NextResponse.next();
+      const res = NextResponse.next();
+      res.cookies.set("user_email", String(payload.email), {
+        path: "/", 
+        httpOnly: false, 
+        secure: true, 
+        sameSite: "lax",
+      });
+      return res;
     }
 
     console.log("JWT Payload:", payload);
   } catch (error) {
     console.error("JWT verification failed:", error);
-    return NextResponse.redirect(new URL("/login", req.url));
+    return NextResponse.redirect(new URL("/userlogin", req.url));
   }
 }
 

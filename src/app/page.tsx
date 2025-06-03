@@ -1,5 +1,6 @@
 // "use client";
-// import React, { useState, useEffect, useCallback } from "react";
+// import React, { useState, useEffect, useCallback, useRef } from "react";
+// import { debounce } from "lodash"; // Add lodash for debouncing
 // import { ProcessList } from "./components/dashboard/ProcessList";
 // import { SystemStats } from "./components/dashboard/SystemStats";
 // import { LogViewer } from "./components/dashboard/LogViewer";
@@ -18,9 +19,13 @@
 //   StorageStats as StorageStatsType,
 //   UserProcess,
 // } from "./components/dashboard/types";
-// import { parseMemory, parsePercent, validateMemoryValue } from "./components/dashboard/utils";
-// import RenderAccessLogs from "./components/renderaccesslog";
-// import AccesslogTerminal from "./components/accesslogterminal";
+// import {
+//   parseMemory,
+//   parsePercent,
+//   validateMemoryValue,
+// } from "./components/dashboard/utils";
+// import RenderAccessLogs from "./components/accesslog/renderaccesslog";
+// import AccesslogTerminal from "./components/accesslog/accesslogterminal";
 // import { ErrorPopup } from "./components/dashboard/error-popup";
 // import { StorageStats } from "./components/dashboard/StorageStats";
 // import { UserList } from "./components/dashboard/Userlist";
@@ -54,11 +59,75 @@
 //   const [selectedLogFile, setSelectedLogFile] = useState<string | null>(null);
 //   const [showTerminal, setShowTerminal] = useState<boolean>(false);
 //   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
-//   const [accessLogInsights, setAccessLogInsights] = useState<AccessLogInsight[]>([]);
+//   const [accessLogInsights, setAccessLogInsights] = useState<
+//     AccessLogInsight[]
+//   >([]);
 //   const [logFileInsights, setLogFileInsights] = useState<LogFileInsights>({});
 //   const [isSocketError, setIsSocketError] = useState<boolean>(false);
 //   const [userProcesses, setUserProcesses] = useState<UserProcess[]>([]);
+//   const [DBprocess, setDBprocess] = useState<PM2Process[]>([]);
+//   const [isRoot, setIsRoot] = useState<boolean>(false);
+//   const [selectedServer, setSelectedServer] = useState<string | null>(null);
+//   const [availableServers, setAvailableServers] = useState<
+//     Array<{ id: string; lastUpdate: number; isActive: boolean }>
+//   >([]);
+//   const socketRef = useRef<WebSocket | null>(null);
+//   const reconnectAttempts = useRef(0);
+//   const maxReconnectAttempts = 3;
+//   const reconnectInterval = 3000;
 
+//   // First useEffect: Handle role and login
+//   useEffect(() => {
+//     const role = document.cookie
+//       .split("; ")
+//       .find((row) => row.startsWith("role="))
+//       ?.split("=")[1];
+
+//     if (role === "root") {
+//       setIsRoot(true);
+//     }
+
+//     const email = document.cookie
+//       .split("; ")
+//       .find((row) => row.startsWith("user_email="))
+//       ?.split("=")[1];
+
+//     const decodedEmail = email ? decodeURIComponent(email) : null;
+
+//     console.log("Decoded email:", decodedEmail);
+//     if (email) {
+//       const sendLoginInfo = async () => {
+//         try {
+//           const response = await fetch("/api/user-login", {
+//             method: "POST",
+//             headers: {
+//               "Content-Type": "application/json",
+//             },
+//             body: JSON.stringify({
+//               email: decodedEmail,
+//               selectedServer: "Racknerd_server", // Corrected typo from "Rackend-server"
+//               flag: 1,
+//             }),
+//           });
+
+//           if (!response.ok) {
+//             throw new Error(`Login API failed with status: ${response.status}`);
+//           }
+
+//           const data = await response.json();
+//           setDBprocess(data.data || []);
+//           console.log("Response data:", data);
+//         } catch (error) {
+//           console.error("Login API error:", error);
+//           setDBprocess([]); // Ensure DBprocess is set to an empty array on error
+//         }
+//       };
+
+//       sendLoginInfo();
+//     }
+//   }, []);
+
+//   // Update process stats with memoized callback
 //   const updateProcessStats = useCallback((logData: LogMessage) => {
 //     setProcesses((prevProcesses) =>
 //       prevProcesses.map((process) =>
@@ -74,86 +143,165 @@
 //     );
 //   }, []);
 
+//   // Debounced function to update log entries
+//   const updateLogEntries = useCallback(
+//     debounce((newEntries: LogEntry[]) => {
+//       setLogEntries((prev) => {
+//         const existingTimestamps = new Set(
+//           prev.map((entry) => `${entry.logFile}:${entry.timestamp}`)
+//         );
+//         const filteredEntries = newEntries.filter(
+//           (entry) => !existingTimestamps.has(`${entry.logFile}:${entry.timestamp}`)
+//         );
+//         return [...prev, ...filteredEntries]
+//           .sort(
+//             (a, b) =>
+//               new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+//           )
+//           .slice(-100);
+//       });
+//     }, 500),
+//     []
+//   );
+
+//   // Second useEffect: WebSocket connection and message handling
 //   useEffect(() => {
-//     console.log("Connecting to WebSocket...",process.env.NEXT_PUBLIC_WEBSOCKET_URL);
-//     // const socket = new WebSocket(process.env.NEXT_PUBLIC_WEBSOCKET_URL || "ws://localhost:8080");
+//     let reconnectTimeout: NodeJS.Timeout;
 
-//     const socket = new WebSocket("ws://localhost:8080");
+//     const connectWebSocket = () => {
+//       console.log(
+//         "Connecting to WebSocket...",
+//         process.env.NEXT_PUBLIC_WEBSOCKET_URL
+//       );
+//       const socket = new WebSocket(
+//         process.env.NEXT_PUBLIC_WEBSOCKET_URL || "wss://logwatcher.udonswap.org:3000"
+//       );
+//       socketRef.current = socket;
 
-//     // socket.onopen = () => {
-//     //   socket.send(
-//     //     JSON.stringify({ type: "client_info", userAgent: navigator.userAgent })
-//     //   );
-//     // };
-
-//     socket.onmessage = (event) => {
-//       try {
-//         const data = JSON.parse(event.data);
-
-//         if (data.type === "processList" || data.type === "processUpdate") {
-//           setProcesses(data.data);
-//           if (data.data.length > 0) {
-//             const proc = data.data[0];
-//             setSystemStats({
-//               systemMemoryTotal: validateMemoryValue(
-//                 proc.systemMemoryTotal || proc.sysytemMemoryTotal // Handle typo
-//               ),
-//               systemFreeMemory: validateMemoryValue(proc.systemFreeMemory),
-//               systemUsedMemory: validateMemoryValue(proc.systemUsedMemory),
-//               systemBufferMemory: validateMemoryValue(proc.systemBufferMemory),
-//             });
-//             setStorageStats({
-//               storageTotal: data.data[0].storageTotal,
-//               storageUsed: data.data[0].storageUsed,
-//               storageAvailable: data.data[0].storageAvailable,
-//               storageUsePercent: data.data[0].storageUsePercent,
+//       socket.onopen = () => {
+//         console.log("WebSocket connected");
+//         reconnectAttempts.current = 0;
+//         setIsSocketError(false);
+//         // Request server list immediately after connection
+//         socket.send(JSON.stringify({ type: "requestServerList" }));
+        
+//         if (selectedServer) {
+//           socket.send(
+//             JSON.stringify({
+//               type: "selectServer",
+//               serverId: selectedServer,
 //             })
-//             setUserProcesses(proc.userProcesses || []);
+//           );
+//         }
+//       };
 
-//             const processWithLogs = data.data.find(
-//               (proc: PM2Process) => Array.isArray(proc.accessLogs)
-//             );
-//             if (processWithLogs) {
-//               const logsWithIds = processWithLogs.accessLogs.map(
-//                 (log: string, index: number) => ({
-//                   id: (index + 1).toString(),
-//                   name: log,
-//                 })
-//               );
-//               setAccessLogs(logsWithIds);
-//             }
+//       socket.onmessage = (event) => {
+//         try {
+//           const data = JSON.parse(event.data);
+          
+//           // Validate serverId in incoming messages
+//           if (!data.serverId && data.type !== "serverList" && data.type !== "serverStatus") {
+//             console.warn("Received message without serverId:", data);
+//             return;
 //           }
-//           setIsLoading(false);
 
-//           if (data.type === "processUpdate") {
-//             setTimeSeriesData((prev) => {
-//               const newData = { ...prev };
-//               data.data.forEach((process: PM2Process) => {
-//                 if (!newData[process.name]) newData[process.name] = [];
-//                 const metric: TimeSeriesMetric = {
-//                   timestamp: process.lastUpdate || new Date().toISOString(),
-//                   memory: parseMemory(process.memory),
-//                   residentMemory: parseMemory(process.residentMemory),
-//                   sharedMemory: parseMemory(process.sharedMemory),
-//                   topMEM: parsePercent(process.topMEM),
-//                 };
-//                 newData[process.name] = [...newData[process.name], metric].slice(-5);
+//           // Handle server list updates
+//           if (data.type === "serverList" || data.type === "serverStatus") {
+//             setAvailableServers(data.servers || []);
+//             return;
+//           }
+
+//           // Handle server selection confirmation
+//           if (data.type === "serverSelected") {
+//             console.log(`Selected server: ${data.serverId}`);
+//             return;
+//           }
+
+//           // Only process messages for the currently selected server
+//           if (data.serverId !== selectedServer) {
+//             console.log(`Ignoring message for server ${data.serverId}, current selected server: ${selectedServer}`);
+//             return;
+//           }
+
+//           console.log(`Processing message for server ${data.serverId}`);
+
+//           if (data.type === "processList" || data.type === "processUpdate") {
+//             setProcesses(data.data);
+//             setIsLoading(false);
+//             if (data.data.length > 0) {
+//               const proc = data.data[0];
+//               setSystemStats({
+//                 systemMemoryTotal: validateMemoryValue(proc.systemMemoryTotal),
+//                 systemFreeMemory: validateMemoryValue(proc.systemFreeMemory),
+//                 systemUsedMemory: validateMemoryValue(proc.systemUsedMemory),
+//                 systemBufferMemory: validateMemoryValue(proc.systemBufferMemory),
 //               });
-//               return newData;
-//             });
-//           }
-//         } else if (data.type === "out_log_update") {
-//           data.severity = "info";
-//           setOutLogs((prev) => [...prev, data]);
-//           updateProcessStats(data);
-//         } else if (data.type === "error_log_update") {
-//           data.severity = "error";
-//           setErrorLogs((prev) => [...prev, data]);
-//           updateProcessStats(data);
-//         } else if (data.type === "access_log_update") {
-//           setLogEntries((prev) =>
-//             [
-//               ...prev,
+//               setStorageStats({
+//                 storageTotal: proc.storageTotal,
+//                 storageUsed: proc.storageUsed,
+//                 storageAvailable: proc.storageAvailable,
+//                 storageUsePercent: proc.storageUsePercent,
+//               });
+//               setUserProcesses(proc.userProcesses || []);
+
+//               const processWithLogs = data.data.find((proc: PM2Process) =>
+//                 Array.isArray(proc.accessLogs)
+//               );
+//               if (processWithLogs) {
+//                 const logsWithIds = processWithLogs.accessLogs.map(
+//                   (log: string, index: number) => ({
+//                     id: (index + 1).toString(),
+//                     name: log,
+//                   })
+//                 );
+//                 setAccessLogs(logsWithIds);
+//               }
+//             }
+
+//             if (data.type === "processUpdate") {
+//               setTimeSeriesData((prev) => {
+//                 const newData = { ...prev };
+//                 data.data.forEach((process: PM2Process) => {
+//                   if (!newData[process.name]) newData[process.name] = [];
+//                   const metric: TimeSeriesMetric = {
+//                     timestamp: process.lastUpdate || new Date().toISOString(),
+//                     memory: parseMemory(process.memory),
+//                     residentMemory: parseMemory(process.residentMemory),
+//                     sharedMemory: parseMemory(process.sharedMemory),
+//                     topMEM: parsePercent(process.topMEM),
+//                   };
+//                   newData[process.name] = [...newData[process.name], metric].slice(
+//                     -5
+//                   );
+//                 });
+//                 return newData;
+//               });
+//             }
+//           } else if (data.type === "access_log_analysis") {
+//             updateLogEntries(
+//               data.analysis.map((entry: any) => ({
+//                 timestamp: entry.timestamp,
+//                 ip: entry.ip,
+//                 method: entry.method,
+//                 url: entry.url,
+//                 statusCode: parseInt(entry.status),
+//                 userAgent: entry.userAgent,
+//                 logFile: data.logFile,
+//               }))
+//             );
+//           } else if (
+//             data.type === "out_log_update" ||
+//             data.type === "error_log_update"
+//           ) {
+//             data.severity = data.type === "out_log_update" ? "info" : "error";
+//             if (data.type === "out_log_update") {
+//               setOutLogs((prev) => [...prev, data]);
+//             } else {
+//               setErrorLogs((prev) => [...prev, data]);
+//             }
+//             updateProcessStats(data);
+//           } else if (data.type === "access_log_update") {
+//             updateLogEntries([
 //               {
 //                 timestamp: data.accessLog.timestamp,
 //                 ip: data.accessLog.ip,
@@ -163,72 +311,106 @@
 //                 userAgent: data.accessLog.userAgent,
 //                 logFile: data.logFile,
 //               },
-//             ].slice(-100)
-//           );
-//           const { browser, os } = data;
-//           setAccessLogInsights((prev) => {
-//             const existing = prev.find(
-//               (insight) => insight.browser === browser && insight.os === os
-//             );
-//             if (existing) {
-//               return prev.map((insight) =>
-//                 insight.browser === browser && insight.os === os
-//                   ? { ...insight, count: insight.count + 1 }
-//                   : insight
+//             ]);
+//             const { browser, os, logFile } = data;
+//             setAccessLogInsights((prev) => {
+//               const existing = prev.find(
+//                 (insight) =>
+//                   insight.browser === browser && insight.os === os
 //               );
-//             }
-//             return [...prev, { browser, os, count: 1 }];
-//           });
-//           setLogFileInsights((prev) => {
-//             const logFile = data.logFile;
-//             const insights = prev[logFile] || [];
-//             const existing = insights.find(
-//               (i) => i.browser === browser && i.os === os
+//               if (existing) {
+//                 return prev.map((insight) =>
+//                   insight.browser === browser && insight.os === os
+//                     ? { ...insight, count: insight.count + 1 }
+//                     : insight
+//                 );
+//               }
+//               return [...prev, { browser, os, count: 1 }];
+//             });
+//             setLogFileInsights((prev) => {
+//               const insights = prev[logFile] || [];
+//               const existing = insights.find(
+//                 (i) => i.browser === browser && i.os === os
+//               );
+//               return {
+//                 ...prev,
+//                 [logFile]: existing
+//                   ? insights.map((i) =>
+//                       i === existing ? { ...i, count: i.count + 1 } : i
+//                     )
+//                   : [...insights, { browser, os, count: 1 }],
+//               };
+//             });
+//           } else if (data.type === "access_log_history") {
+//             updateLogEntries(
+//               data.history.map((entry: any) => ({
+//                 timestamp: entry.timestamp,
+//                 ip: entry.ip,
+//                 method: entry.method,
+//                 url: entry.url,
+//                 statusCode: parseInt(entry.status),
+//                 userAgent: entry.userAgent,
+//                 logFile: data.logFile,
+//               }))
 //             );
-//             return {
-//               ...prev,
-//               [logFile]: existing
-//                 ? insights.map((i) =>
-//                     i === existing ? { ...i, count: i.count + 1 } : i
-//                   )
-//                 : [...insights, { browser, os, count: 1 }],
-//             };
-//           });
-//         } else {
-//           const logData = data as LogMessage;
-//           logData.severity = logData.severity || "error";
-//           setErrorLogs((prev) => [...prev, logData]);
-//           updateProcessStats(logData);
+//             console.log(
+//               `Received ${data.history.length} access log entries for ${data.logFile}`
+//             );
+//           }
+//         } catch (error) {
+//           console.error("WebSocket message parsing error:", error);
 //         }
-//       } catch (error) {
-//         console.error("WebSocket message parsing error:", error);
+//       };
+
+//       socket.onerror = () => {
+//         console.error("WebSocket error occurred");
+//         reconnectAttempts.current += 1;
+//         if (reconnectAttempts.current >= maxReconnectAttempts) {
+//           setIsSocketError(true);
+//         } else {
+//           const delay = reconnectInterval * Math.pow(2, reconnectAttempts.current);
+//           reconnectTimeout = setTimeout(connectWebSocket, delay);
+//         }
+//       };
+
+//       socket.onclose = () => {
+//         console.log("WebSocket disconnected");
+//         if (reconnectAttempts.current < maxReconnectAttempts) {
+//           const delay = reconnectInterval * Math.pow(2, reconnectAttempts.current);
+//           reconnectTimeout = setTimeout(connectWebSocket, delay);
+//         } else {
+//           setIsSocketError(true);
+//         }
+//       };
+//     };
+
+//     connectWebSocket();
+
+//     return () => {
+//       if (socketRef.current) {
+//         socketRef.current.close();
 //       }
+//       clearTimeout(reconnectTimeout);
 //     };
-
-//     socket.onerror = (error) => {
-//       console.error("WebSocket error:", error.currentTarget);
-//       setIsSocketError(true);
-//     };
-
-//     socket.onclose = () => {
-//       console.log("WebSocket disconnected");
-//       setIsSocketError(true);
-//     };
-
-//     return () => socket.close();
-//   }, [updateProcessStats]);
+//   }, [selectedServer, updateProcessStats, updateLogEntries]);
 
 //   const handleViewLogs = (processName: string) => {
 //     setShowTerminal(false);
+//     console.log("Selected process:", processName);
 //     setSelectedApp(processName);
 //     setTimeout(() => {
-//       document.getElementById("logs-section")?.scrollIntoView({ behavior: "smooth" });
+//       document
+//         .getElementById("logs-section")
+//         ?.scrollIntoView({ behavior: "smooth" });
 //     }, 100);
 //   };
 
 //   const clearLogs = () => {
 //     setErrorLogs([]);
 //     setOutLogs([]);
+//     setLogEntries([]);
+//     setAccessLogInsights([]);
+//     setLogFileInsights({});
 //     setProcesses((prev) =>
 //       prev.map((process) => ({
 //         ...process,
@@ -244,6 +426,78 @@
 //     }));
 //   };
 
+//   const handleFetchPastRequests = () => {
+//     if (
+//       socketRef.current &&
+//       socketRef.current.readyState === WebSocket.OPEN &&
+//       selectedLogFile &&
+//       selectedServer
+//     ) {
+//       console.log("Current selected log file:", selectedLogFile);
+//       console.log("Current selected server:", selectedServer);
+//       console.log("Select ref:", socketRef.current);
+//       socketRef.current.send(
+//         JSON.stringify({
+//           type: "request_access_log_history",
+//           logFile: selectedLogFile,
+//           serverId: selectedServer,
+//         })
+//       );
+//       console.log(`📜 Requested past 100 requests for ${selectedLogFile} on ${selectedServer}`);
+//     } else {
+//       console.error(
+//         "Cannot fetch past requests: WebSocket not open, no log file, or no server selected"
+//       );
+//     }
+//   };
+
+//   const handleServerSelect = (serverId: string) => {
+//     if (!serverId) {
+//       console.log("No server selected");
+//       return;
+//     }
+
+//     if (serverId !== selectedServer) {
+//       console.log(`Switching from server ${selectedServer} to ${serverId}`);
+//       setSelectedServer(serverId);
+//       // Clear all state
+//       setProcesses([]);
+//       setLogEntries([]);
+//       setAccessLogInsights([]);
+//       setLogFileInsights({});
+//       setErrorLogs([]);
+//       setOutLogs([]);
+//       setSystemStats({
+//         systemMemoryTotal: "0 MB",
+//         systemFreeMemory: "0 MB",
+//         systemUsedMemory: "0 MB",
+//         systemBufferMemory: "0 MB",
+//       });
+//       setStorageStats({
+//         storageTotal: "0 MB",
+//         storageUsed: "0 MB",
+//         storageAvailable: "0 MB",
+//         storageUsePercent: "0%",
+//       });
+//       setUserProcesses([]);
+//       setAccessLogs([]);
+//       setTimeSeriesData({});
+//       setIsLoading(true);
+
+//       // Send server selection message
+//       if (socketRef.current?.readyState === WebSocket.OPEN) {
+//         socketRef.current.send(
+//           JSON.stringify({
+//             type: "selectServer",
+//             serverId,
+//           })
+//         );
+//       } else {
+//         console.error("WebSocket not connected when trying to select server");
+//       }
+//     }
+//   };
+
 //   return (
 //     <div
 //       className={`min-h-screen ${
@@ -251,6 +505,22 @@
 //       } transition-colors duration-300`}
 //     >
 //       <div className="container mx-auto px-4 py-6">
+//         <div className="mb-4">
+//           <select
+//             value={selectedServer || ""}
+//             onChange={(e) => handleServerSelect(e.target.value)}
+//             className={`p-2 rounded ${
+//               darkMode ? "bg-gray-800 text-white" : "bg-white text-gray-900"
+//             }`}
+//           >
+//             <option value="">Select a server</option>
+//             {availableServers.map((server) => (
+//               <option key={server.id} value={server.id}>
+//                 {server.id} {server.isActive ? "🟢" : "🔴"}
+//               </option>
+//             ))}
+//           </select>
+//         </div>
 //         <DashboardControls
 //           darkMode={darkMode}
 //           filter={filter}
@@ -261,20 +531,33 @@
 //           onSetFilter={setFilter}
 //           onToggleAutoScroll={() => setAutoScroll(!autoScroll)}
 //           onBackToProcessList={() => setSelectedApp(null)}
+//           isroot={isRoot}
 //         />
 //         <ProcessList
 //           processes={processes}
+//           DBprocess={DBprocess}
 //           isLoading={isLoading}
 //           onViewLogs={handleViewLogs}
 //           darkMode={darkMode}
+//           isroot={isRoot}
 //         />
-//         <SystemStats systemStats={systemStats} darkMode={darkMode} selectedApp={selectedApp} />
-//         <StorageStats storageStats={storageStats} darkMode={darkMode} selectedApp={selectedApp} />
-//         <UserList
-//           userProcesses={userProcesses}
-//           isLoading={isLoading}
+//         <SystemStats
+//           systemStats={systemStats}
 //           darkMode={darkMode}
+//           selectedApp={selectedApp}
 //         />
+//         <StorageStats
+//           storageStats={storageStats}
+//           darkMode={darkMode}
+//           selectedApp={selectedApp}
+//         />
+//         {!selectedApp && (
+//           <UserList
+//             userProcesses={userProcesses}
+//             isLoading={isLoading}
+//             darkMode={darkMode}
+//           />
+//         )}
 //         {!selectedApp && (
 //           <div className={`${darkMode ? "bg-gray-900" : "bg-gray-100"} p-6`}>
 //             <RenderAccessLogs
@@ -290,14 +573,27 @@
 //                 <AccesslogTerminal
 //                   logFile={selectedLogFile}
 //                   darkMode={darkMode}
-//                   requests={logEntries.filter((entry) => entry.logFile === selectedLogFile)}
+//                   requests={logEntries.filter(
+//                     (entry) => entry.logFile === selectedLogFile
+//                   )}
 //                 />
-//                 <button
-//                   onClick={() => setShowTerminal(false)}
-//                   className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-//                 >
-//                   Close Terminal
-//                 </button>
+//                 <div className="mt-4 flex space-x-4">
+//                   <button
+//                     onClick={handleFetchPastRequests}
+//                     className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+//                   >
+//                     Past 100 Requests
+//                   </button>
+//                   <button
+//                     onClick={() => {
+//                       setShowTerminal(false);
+//                       setSelectedLogFile(null);
+//                     }}
+//                     className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+//                   >
+//                     Close Terminal
+//                   </button>
+//                 </div>
 //               </div>
 //             )}
 //           </div>
@@ -329,7 +625,10 @@
 //             />
 //           </>
 //         )}
-//           <ErrorPopup isOpen={isSocketError} onClose={() => setIsSocketError(false)} />
+//         <ErrorPopup
+//           isOpen={isSocketError}
+//           onClose={() => setIsSocketError(false)}
+//         />
 //       </div>
 //     </div>
 //   );
@@ -337,6 +636,7 @@
 
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { debounce } from "lodash";
 import { ProcessList } from "./components/dashboard/ProcessList";
 import { SystemStats } from "./components/dashboard/SystemStats";
 import { LogViewer } from "./components/dashboard/LogViewer";
@@ -401,20 +701,26 @@ export default function Home() {
   const [logFileInsights, setLogFileInsights] = useState<LogFileInsights>({});
   const [isSocketError, setIsSocketError] = useState<boolean>(false);
   const [userProcesses, setUserProcesses] = useState<UserProcess[]>([]);
-  const [DBprocess, setDBprocess] = useState<PM2Process[]>([]); // Added to store DB processes
-  const [isRoot, setIsRoot] = useState<boolean>(false); // Added to store root status
-  const socketRef = useRef<WebSocket | null>(null); // Added to store WebSocket
+  const [DBprocess, setDBprocess] = useState<PM2Process[]>([]);
+  const [isRoot, setIsRoot] = useState<boolean>(false);
+  const [selectedServer, setSelectedServer] = useState<string | null>(null);
+  const [availableServers, setAvailableServers] = useState<
+    Array<{ id: string; lastUpdate: number; isActive: boolean }>
+  >([]);
+  const socketRef = useRef<WebSocket | null>(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 3;
   const reconnectInterval = 3000;
+  const lastProcessedServerRef = useRef<string | null>(null); // Track the last server for which messages were processed
 
+  // First useEffect: Handle role and login
   useEffect(() => {
     const role = document.cookie
       .split("; ")
       .find((row) => row.startsWith("role="))
       ?.split("=")[1];
 
-    if (role == "root") {
+    if (role === "root") {
       setIsRoot(true);
     }
 
@@ -427,7 +733,6 @@ export default function Home() {
 
     console.log("Decoded email:", decodedEmail);
     if (email) {
-      // ✅ Define an async function inside useEffect
       const sendLoginInfo = async () => {
         try {
           const response = await fetch("/api/user-login", {
@@ -437,24 +742,29 @@ export default function Home() {
             },
             body: JSON.stringify({
               email: decodedEmail,
-              selectedServer: "Rackend-server", // corrected key name
+              selectedServer: selectedServer || "Racknerd_server", // Use selectedServer if available
               flag: 1,
             }),
           });
 
+          if (!response.ok) {
+            throw new Error(`Login API failed with status: ${response.status}`);
+          }
+
           const data = await response.json();
-          setDBprocess(data.data);
+          setDBprocess(data.data || []);
           console.log("Response data:", data);
         } catch (error) {
           console.error("Login API error:", error);
+          setDBprocess([]);
         }
       };
 
-      // ✅ Call the function
       sendLoginInfo();
     }
-  }, []);
+  }, [selectedServer]); // Re-run when selectedServer changes
 
+  // Update process stats with memoized callback
   const updateProcessStats = useCallback((logData: LogMessage) => {
     setProcesses((prevProcesses) =>
       prevProcesses.map((process) =>
@@ -469,7 +779,29 @@ export default function Home() {
       )
     );
   }, []);
-  
+
+  // Debounced function to update log entries
+  const updateLogEntries = useCallback(
+    debounce((newEntries: LogEntry[]) => {
+      setLogEntries((prev) => {
+        const existingTimestamps = new Set(
+          prev.map((entry) => `${entry.logFile}:${entry.timestamp}`)
+        );
+        const filteredEntries = newEntries.filter(
+          (entry) => !existingTimestamps.has(`${entry.logFile}:${entry.timestamp}`)
+        );
+        return [...prev, ...filteredEntries]
+          .sort(
+            (a, b) =>
+              new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          )
+          .slice(-100);
+      });
+    }, 500),
+    []
+  );
+
+  // Second useEffect: WebSocket connection and message handling
   useEffect(() => {
     let reconnectTimeout: NodeJS.Timeout;
 
@@ -479,39 +811,79 @@ export default function Home() {
         process.env.NEXT_PUBLIC_WEBSOCKET_URL
       );
       const socket = new WebSocket(
-        process.env.NEXT_PUBLIC_WEBSOCKET_URL || "ws://localhost:8080"
+        process.env.NEXT_PUBLIC_WEBSOCKET_URL || "wss://logwatcher.udonswap.org:3000"
       );
       socketRef.current = socket;
 
       socket.onopen = () => {
-        console.log("WebSocket connected");
-        socket.send(
-          JSON.stringify({
-            type: "client_info",
-            userAgent: navigator.userAgent,
-          })
-        );
-        setIsSocketError(false); // Reset error state on successful connection
-        reconnectAttempts.current = 0; // Reset reconnect attempts
+        console.log("WebSocket connected at", new Date().toISOString());
+        reconnectAttempts.current = 0;
+        setIsSocketError(false);
+        socket.send(JSON.stringify({ type: "requestServerList" }));
+
+        if (selectedServer) {
+          console.log(`Sending selectServer for ${selectedServer}`);
+          socket.send(
+            JSON.stringify({
+              type: "selectServer",
+              serverId: selectedServer,
+            })
+          );
+        }
       };
 
       socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          console.log("Received WebSocket message:", data);
+
+          // Handle server list updates
+          if (data.type === "serverList" || data.type === "serverStatus") {
+            setAvailableServers(data.servers || []);
+            return;
+          }
+
+          // Handle server selection confirmation
+          if (data.type === "serverSelected") {
+            console.log(`Server selection confirmed: ${data.serverId}`);
+            lastProcessedServerRef.current = data.serverId;
+            return;
+          }
+
+          // Validate serverId in incoming messages
+          if (!data.serverId && data.type !== "serverList" && data.type !== "serverStatus") {
+            console.warn("Received message without serverId:", data);
+            return;
+          }
+
+          // Only process messages for the currently selected server
+          if (data.serverId !== selectedServer) {
+            console.log(
+              `Ignoring message for server ${data.serverId}, current selected server: ${selectedServer}`
+            );
+            return;
+          }
+
+          // Additional check: Ignore messages if they don't match the last confirmed server
+          if (lastProcessedServerRef.current !== selectedServer) {
+            console.log(
+              `Ignoring message for server ${data.serverId}, last confirmed server: ${lastProcessedServerRef.current}`
+            );
+            return;
+          }
+
+          console.log(`Processing message for server ${data.serverId}`);
 
           if (data.type === "processList" || data.type === "processUpdate") {
             setProcesses(data.data);
+            setIsLoading(false);
             if (data.data.length > 0) {
               const proc = data.data[0];
               setSystemStats({
-                systemMemoryTotal: validateMemoryValue(
-                  proc.systemMemoryTotal || proc.sysytemMemoryTotal
-                ),
+                systemMemoryTotal: validateMemoryValue(proc.systemMemoryTotal),
                 systemFreeMemory: validateMemoryValue(proc.systemFreeMemory),
                 systemUsedMemory: validateMemoryValue(proc.systemUsedMemory),
-                systemBufferMemory: validateMemoryValue(
-                  proc.systemBufferMemory
-                ),
+                systemBufferMemory: validateMemoryValue(proc.systemBufferMemory),
               });
               setStorageStats({
                 storageTotal: proc.storageTotal,
@@ -534,7 +906,6 @@ export default function Home() {
                 setAccessLogs(logsWithIds);
               }
             }
-            setIsLoading(false);
 
             if (data.type === "processUpdate") {
               setTimeSeriesData((prev) => {
@@ -548,32 +919,39 @@ export default function Home() {
                     sharedMemory: parseMemory(process.sharedMemory),
                     topMEM: parsePercent(process.topMEM),
                   };
-                  newData[process.name] = [
-                    ...newData[process.name],
-                    metric,
-                  ].slice(-5);
+                  newData[process.name] = [...newData[process.name], metric].slice(
+                    -5
+                  );
                 });
                 return newData;
               });
             }
-          } else if (data.type === "access_log_list") {
-            setAccessLogs(
-              data.logFiles.map((name: string, index: number) => ({
-                id: (index + 1).toString(),
-                name,
+          } else if (data.type === "access_log_analysis") {
+            updateLogEntries(
+              data.analysis.map((entry: any) => ({
+                timestamp: entry.timestamp,
+                ip: entry.ip,
+                method: entry.method,
+                url: entry.url,
+                statusCode: parseInt(entry.status),
+                userAgent: entry.userAgent,
+                logFile: data.logFile,
               }))
             );
-          } else if (data.type === "out_log_update") {
-            data.severity = "info";
-            setOutLogs((prev) => [...prev, data]);
-            updateProcessStats(data);
-          } else if (data.type === "error_log_update") {
-            data.severity = "error";
-            setErrorLogs((prev) => [...prev, data]);
+          } else if (
+            data.type === "out_log_update" ||
+            data.type === "error_log_update"
+          ) {
+            data.severity = data.type === "out_log_update" ? "info" : "error";
+            if (data.type === "out_log_update") {
+              setOutLogs((prev) => [...prev, data]);
+            } else {
+              setErrorLogs((prev) => [...prev, data]);
+            }
             updateProcessStats(data);
           } else if (data.type === "access_log_update") {
-            setLogEntries((prev) => {
-              const newEntry = {
+            updateLogEntries([
+              {
                 timestamp: data.accessLog.timestamp,
                 ip: data.accessLog.ip,
                 method: data.accessLog.method,
@@ -581,20 +959,13 @@ export default function Home() {
                 statusCode: parseInt(data.accessLog.status),
                 userAgent: data.accessLog.userAgent,
                 logFile: data.logFile,
-              };
-              const updated = [...prev, newEntry]
-                .sort(
-                  (a, b) =>
-                    new Date(a.timestamp).getTime() -
-                    new Date(b.timestamp).getTime()
-                )
-                .slice(-100);
-              return updated;
-            });
+              },
+            ]);
             const { browser, os, logFile } = data;
             setAccessLogInsights((prev) => {
               const existing = prev.find(
-                (insight) => insight.browser === browser && insight.os === os
+                (insight) =>
+                  insight.browser === browser && insight.os === os
               );
               if (existing) {
                 return prev.map((insight) =>
@@ -620,87 +991,20 @@ export default function Home() {
               };
             });
           } else if (data.type === "access_log_history") {
-            setLogEntries((prev) => {
-              const existingTimestamps = new Set(
-                prev.map((entry) => `${entry.logFile}:${entry.timestamp}`)
-              );
-              const newEntries = data.history
-                .filter(
-                  (entry: {
-                    logFile: string;
-                    accessLog: { timestamp: string };
-                  }) =>
-                    !existingTimestamps.has(
-                      `${entry.logFile}:${entry.accessLog.timestamp}`
-                    )
-                )
-                .map(
-                  (entry: {
-                    accessLog: {
-                      timestamp: string;
-                      ip: string;
-                      method: string;
-                      url: string;
-                      status: string;
-                      userAgent: string;
-                    };
-                    logFile: string;
-                  }) => ({
-                    timestamp: entry.accessLog.timestamp,
-                    ip: entry.accessLog.ip,
-                    method: entry.accessLog.method,
-                    url: entry.accessLog.url,
-                    statusCode: parseInt(entry.accessLog.status),
-                    userAgent: entry.accessLog.userAgent,
-                    logFile: entry.logFile,
-                  })
-                );
-              const updated = [...prev, ...newEntries]
-                .sort(
-                  (a, b) =>
-                    new Date(a.timestamp).getTime() -
-                    new Date(b.timestamp).getTime()
-                )
-                .slice(-100);
-              return updated;
-            });
-            setAccessLogInsights((prev) => {
-              const updatedInsights = [...prev];
-              data.history.forEach((entry: { browser: string; os: string }) => {
-                const { browser, os } = entry;
-                const existing = updatedInsights.find(
-                  (insight) => insight.browser === browser && insight.os === os
-                );
-                if (existing) {
-                  existing.count += 1;
-                } else {
-                  updatedInsights.push({ browser, os, count: 1 });
-                }
-              });
-              return updatedInsights;
-            });
-            setLogFileInsights((prev) => {
-              const { logFile, history } = data;
-              const insightsForLog = prev[logFile] || [];
-              const updatedInsights = [...insightsForLog];
-              history.forEach((entry: { browser: string; os: string }) => {
-                const { browser, os } = entry;
-                const existing = updatedInsights.find(
-                  (insight) => insight.browser === browser && insight.os === os
-                );
-                if (existing) {
-                  existing.count += 1;
-                } else {
-                  updatedInsights.push({ browser, os, count: 1 });
-                }
-              });
-              return { ...prev, [logFile]: updatedInsights };
-            });
-          } else {
-            const logData = data as LogMessage;
-            logData.severity = logData.severity || "error";
-            setErrorLogs((prev) => [...prev, logData]);
-            updateProcessStats(logData);
+            updateLogEntries(
+              data.history.map((entry: any) => ({
+                timestamp: entry.timestamp,
+                ip: entry.ip,
+                method: entry.method,
+                url: entry.url,
+                statusCode: parseInt(entry.status),
+                userAgent: entry.userAgent,
+                logFile: data.logFile,
+              }))
+            );
+            console.log(
+              `Received ${data.history.length} access log entries for ${data.logFile}`
+            );
           }
         } catch (error) {
           console.error("WebSocket message parsing error:", error);
@@ -711,19 +1015,20 @@ export default function Home() {
         console.error("WebSocket error occurred");
         reconnectAttempts.current += 1;
         if (reconnectAttempts.current >= maxReconnectAttempts) {
-          setIsSocketError(true); // Show error popup only after max attempts
+          setIsSocketError(true);
         } else {
-          // Schedule reconnect attempt
-          reconnectTimeout = setTimeout(connectWebSocket, reconnectInterval);
+          const delay = reconnectInterval * Math.pow(2, reconnectAttempts.current);
+          reconnectTimeout = setTimeout(connectWebSocket, delay);
         }
       };
 
       socket.onclose = () => {
         console.log("WebSocket disconnected");
         if (reconnectAttempts.current < maxReconnectAttempts) {
-          reconnectTimeout = setTimeout(connectWebSocket, reconnectInterval);
+          const delay = reconnectInterval * Math.pow(2, reconnectAttempts.current);
+          reconnectTimeout = setTimeout(connectWebSocket, delay);
         } else {
-          setIsSocketError(true); // Show error popup if max attempts reached
+          setIsSocketError(true);
         }
       };
     };
@@ -736,7 +1041,7 @@ export default function Home() {
       }
       clearTimeout(reconnectTimeout);
     };
-  }, [updateProcessStats]);
+  }, [selectedServer, updateProcessStats, updateLogEntries]);
 
   const handleViewLogs = (processName: string) => {
     setShowTerminal(false);
@@ -752,7 +1057,7 @@ export default function Home() {
   const clearLogs = () => {
     setErrorLogs([]);
     setOutLogs([]);
-    setLogEntries([]); // Clear log entries as well
+    setLogEntries([]);
     setAccessLogInsights([]);
     setLogFileInsights({});
     setProcesses((prev) =>
@@ -774,15 +1079,72 @@ export default function Home() {
     if (
       socketRef.current &&
       socketRef.current.readyState === WebSocket.OPEN &&
-      selectedLogFile
+      selectedLogFile &&
+      selectedServer
     ) {
+      console.log("Current selected log file:", selectedLogFile);
+      console.log("Current selected server:", selectedServer);
+      console.log("Select ref:", socketRef.current);
       socketRef.current.send(
         JSON.stringify({
           type: "request_access_log_history",
           logFile: selectedLogFile,
+          serverId: selectedServer,
         })
       );
-      console.log(`📜 Requested past 100 requests for ${selectedLogFile}`);
+      console.log(`📜 Requested past 100 requests for ${selectedLogFile} on ${selectedServer}`);
+    } else {
+      console.error(
+        "Cannot fetch past requests: WebSocket not open, no log file, or no server selected"
+      );
+    }
+  };
+
+  const handleServerSelect = (serverId: string) => {
+    if (!serverId) {
+      console.log("No server selected");
+      return;
+    }
+
+    if (serverId !== selectedServer) {
+      console.log(`Switching from server ${selectedServer} to ${serverId}`);
+      setSelectedServer(serverId);
+      lastProcessedServerRef.current = null; // Reset last processed server
+      // Clear all state
+      setProcesses([]);
+      setLogEntries([]);
+      setAccessLogInsights([]);
+      setLogFileInsights({});
+      setErrorLogs([]);
+      setOutLogs([]);
+      setSystemStats({
+        systemMemoryTotal: "0 MB",
+        systemFreeMemory: "0 MB",
+        systemUsedMemory: "0 MB",
+        systemBufferMemory: "0 MB",
+      });
+      setStorageStats({
+        storageTotal: "0 MB",
+        storageUsed: "0 MB",
+        storageAvailable: "0 MB",
+        storageUsePercent: "0%",
+      });
+      setUserProcesses([]);
+      setAccessLogs([]);
+      setTimeSeriesData({});
+      setIsLoading(true);
+
+      // Send server selection message
+      if (socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(
+          JSON.stringify({
+            type: "selectServer",
+            serverId,
+          })
+        );
+      } else {
+        console.error("WebSocket not connected when trying to select server");
+      }
     }
   };
 
@@ -793,6 +1155,22 @@ export default function Home() {
       } transition-colors duration-300`}
     >
       <div className="container mx-auto px-4 py-6">
+        <div className="mb-4">
+          <select
+            value={selectedServer || ""}
+            onChange={(e) => handleServerSelect(e.target.value)}
+            className={`p-2 rounded ${
+              darkMode ? "bg-gray-800 text-white" : "bg-white text-gray-900"
+            }`}
+          >
+            <option value="">Select a server</option>
+            {availableServers.map((server) => (
+              <option key={server.id} value={server.id}>
+                {server.id} {server.isActive ? "🟢" : "🔴"}
+              </option>
+            ))}
+          </select>
+        </div>
         <DashboardControls
           darkMode={darkMode}
           filter={filter}
